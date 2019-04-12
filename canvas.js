@@ -8,10 +8,29 @@ canvas.height = window.innerHeight;
 var c = canvas.getContext("2d");
 
 //player objects
-let CurlingBall = new Circle(100, 100, 50, "pink");
-let CurlingBall2 = new Circle(800, 100, 50, "lightblue");
 
-// volume
+const balls = [];
+
+// for (let i = 0; i < 6; i++) {
+//   balls.push(
+//     new Circle(
+//       i < 3 ? 100 : canvas.width - 100,
+//       i < 3 ? 110 * (i + 2) : 110 * (i - 1),
+//       50,
+//       i < 3 ? "red" : "yellow"
+//     )
+//   );
+// }
+balls.push(new Circle(canvas.width - 200, canvas.height / 2 + 25, 50, "white"));
+balls.push(new Circle(500, canvas.height / 2 + 25, 50, "red"));
+balls.push(new Circle(500 - 90, canvas.height / 2 - 55 + 25, 50, "red"));
+balls.push(new Circle(500 - 90, canvas.height / 2 + 55 + 25, 50, "red"));
+
+balls.push(
+  new Circle(500 - 90 - 90, canvas.height / 2 + 55 + 55 + 25, 50, "red")
+);
+balls.push(new Circle(500 - 90 - 90, canvas.height / 2 + 25, 50, "red"));
+balls.push(new Circle(500 - 90 - 90, canvas.height / 2 - 110 + 25, 50, "red"));
 
 // pythag collision detection
 function getDistance(x1, y1, x2, y2) {
@@ -27,20 +46,11 @@ const showDistance = (ball1, ball2) => {
 };
 
 const getCollision = (a, b) => {
-  if (
-    getDistance(a.x, a.y, b.x, b.y) >= -(a.radius + b.radius) &&
-    getDistance(a.x, a.y, b.x, b.y) <= a.radius + b.radius
-  ) {
-    return true;
-  }
+  return (
+    getDistance(a.x, a.y, b.x, b.y) > -(a.radius + b.radius) &&
+    getDistance(a.x, a.y, b.x, b.y) < a.radius + b.radius
+  );
 };
-
-// function displayText(input, size, x, y, colour) {
-//   c.font = `${size}px Courier`;
-//   c.fillStyle = colour;
-//   c.textAlign = "center";
-//   c.fillText(input, x, y);
-// }
 
 // circle constructor
 function Circle(x, y, radius, colour) {
@@ -48,11 +58,12 @@ function Circle(x, y, radius, colour) {
   this.dy = 0;
   this.x = x;
   this.y = y;
-  this.angle = () => Math.atan2(this.dy, this.dx);
-  this.speed = () => Math.sqrt(this.dx * this.dx + this.dy * this.dy);
   this.friction = 0.975;
   this.radius = radius;
   this.colour = colour;
+  this.angle = () => Math.atan2(this.dy, this.dx);
+  this.speed = () => Math.sqrt(this.dx * this.dx + this.dy * this.dy);
+  this.mass = () => Math.pow(this.radius, 3);
   this.update = function() {
     this.draw();
   };
@@ -92,42 +103,63 @@ const move = ball => {
   ball.y += ball.dy;
 };
 
-const hit = () => {
-  if (getCollision(CurlingBall, CurlingBall2)) {
-    if (CurlingBall.speed() > CurlingBall2.speed()) {
-      CurlingBall2.dx = CurlingBall.dx;
-      CurlingBall2.dy = CurlingBall.dy;
-      CurlingBall.dx = 0;
-      CurlingBall.dy = 0;
-    } else {
-      CurlingBall.dx = CurlingBall2.dx;
-      CurlingBall.dy = CurlingBall2.dy;
-      CurlingBall2.dx = 0;
-      CurlingBall2.dy = 0;
-    }
-  }
+const circleOnCircle2d = (a, b) => {
+  let phi = Math.atan2(a.y - b.y, a.x - b.x);
+  const aSpeed = a.speed();
+  const bSpeed = b.speed();
+  const aAngle = a.angle();
+  const bAngle = b.angle();
+  const aMass = a.mass();
+  const bMass = b.mass();
+
+  let newVxA =
+    ((aSpeed * Math.cos(aAngle - phi) * (aMass - bMass) +
+      2 * bMass * bSpeed * Math.cos(bAngle - phi)) /
+      (aMass + bMass)) *
+      Math.cos(phi) +
+    aSpeed * Math.sin(aAngle - phi) * Math.cos(phi + Math.PI / 2);
+
+  let newVyA =
+    ((aSpeed * Math.cos(aAngle - phi) * (aMass - bMass) +
+      2 * bMass * bSpeed * Math.cos(bAngle - phi)) /
+      (aMass + bMass)) *
+      Math.sin(phi) +
+    aSpeed * Math.sin(aAngle - phi) * Math.sin(phi + Math.PI / 2);
+
+  let newVxB =
+    ((bSpeed * Math.cos(bAngle - phi) * (bMass - aMass) +
+      2 * aMass * aSpeed * Math.cos(aAngle - phi)) /
+      (bMass + aMass)) *
+      Math.cos(phi) +
+    bSpeed * Math.sin(bAngle - phi) * Math.cos(phi + Math.PI / 2);
+
+  let newVyB =
+    ((bSpeed * Math.cos(bAngle - phi) * (bMass - aMass) +
+      2 * aMass * aSpeed * Math.cos(aAngle - phi)) /
+      (bMass + aMass)) *
+      Math.sin(phi) +
+    bSpeed * Math.sin(bAngle - phi) * Math.sin(phi + Math.PI / 2);
+
+  a.dx = newVxA;
+  a.dy = newVyA;
+  b.dx = newVxB;
+  b.dy = newVyB;
 };
 
 // animation function
 function animate() {
   c.clearRect(0, 0, innerWidth, innerHeight);
-  hit();
 
-  friction(CurlingBall);
-  bounce(CurlingBall);
-  move(CurlingBall);
+  balls.forEach(ball => {
+    for (let i = 0; i < balls.length; i++) {
+      getCollision(ball, balls[i]) && circleOnCircle2d(ball, balls[i]);
+    }
 
-  friction(CurlingBall2);
-  bounce(CurlingBall2);
-  move(CurlingBall2);
-
-  CurlingBall2.update();
-  CurlingBall.update();
-
-  console.log("angle 1: ", CurlingBall.angle() * 57.2958);
-  console.log("speed 1: ", CurlingBall.speed());
-  console.log("distnace: ", showDistance(CurlingBall, CurlingBall2));
-  console.log(Math.sin(CurlingBall.angle()) * CurlingBall.speed());
+    friction(ball);
+    bounce(ball);
+    move(ball);
+    ball.draw();
+  });
   requestAnimationFrame(animate);
 }
 
@@ -148,18 +180,13 @@ const throwBall = (ball, dx, dy) => {
 };
 
 document.addEventListener("mouseup", ({ clientX, clientY }) => {
-  if (getCollision(CurlingBall, { x, y, radius: 0 })) {
-    throwBall(
-      CurlingBall,
-      Math.round((clientX - x) / 10),
-      Math.round((clientY - y) / 10)
-    );
-  }
-  if (getCollision(CurlingBall2, { x, y, radius: 0 })) {
-    throwBall(
-      CurlingBall2,
-      Math.round((clientX - x) / 10),
-      Math.round((clientY - y) / 10)
-    );
+  for (let i = 0; i < balls.length; i++) {
+    if (getCollision(balls[i], { x, y, radius: 0 })) {
+      throwBall(
+        balls[i],
+        Math.round((clientX - x) / 10),
+        Math.round((clientY - y) / 10)
+      );
+    }
   }
 });
