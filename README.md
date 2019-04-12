@@ -1,4 +1,4 @@
-# teeniegreenie
 
-catch game on canvas
 # curling
+
+balls with friction and bounce 
